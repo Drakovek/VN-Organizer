@@ -2,3 +2,4 @@
 build*
 dist*
 *.pyc
+vn_organizer.egg-info*

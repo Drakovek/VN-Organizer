@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from json import dump, load
+from json.decoder import JSONDecodeError
 from os.path import abspath
 from re import sub
 from typing import List
@@ -209,6 +210,7 @@ def get_dict_print(branch_dict:dict=None, path:List[int]=None) -> str:
         for i in range(len(item_list)-1, -1, -1):
             if item_list[i]["type"] == "s":
                 text = get_color("c") + "(S) " + item_list[i]["text"] + get_color("d") + "\n" + text
+                break
         # Add elipses if not at the beginning of the branch
         if len(path) > 0:
             text = "(...)\n" + text
@@ -256,5 +258,5 @@ def read_branch_dict(file:str=None) -> dict:
         assert type(json["item_list"]) is list
         assert type(json["branch"]) is list
         return json
-    except (AssertionError, FileNotFoundError, KeyError, TypeError):
+    except (AssertionError, FileNotFoundError, JSONDecodeError, KeyError, TypeError):
         return None
