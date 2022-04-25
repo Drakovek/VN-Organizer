@@ -220,6 +220,8 @@ def get_dict_print(branch_dict:dict=None, path:List[int]=None) -> str:
             text = text +  get_color("r") + "\n(P) " + branches[0]["prompt"] + get_color("d")
             for branch in branches:
                 text = text + get_color("g") + "\n    ﹂" + branch["response"] + get_color("d")
+                if not is_complete(branch):
+                    text = text + get_color("r") + "\n        [INCOMPLETE]" + get_color("d")
         # Add tabs to text if necessary
         if len(path) > 0:
             text = text.replace("\n", "\n     ")

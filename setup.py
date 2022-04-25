@@ -15,7 +15,7 @@ desc = "Utility for keeping track of branches and saves in visual novels or othe
 
 setuptools.setup(
     name="vn_organizer",
-    version="0.0.3",
+    version="0.0.4",
     author="Drakovek",
     author_email="DrakovekMail@gmail.com",
     description=desc,

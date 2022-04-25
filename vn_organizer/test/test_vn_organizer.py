@@ -229,7 +229,8 @@ def test_get_dict_print():
                 + "     \033[36m(S) 2-3\033[0m\n"\
                 + "     \033[35m(E) Thing\033[0m\033[31m\n"\
                 + "     (P) New Prompt!\033[0m\033[32m\n"\
-                + "         ﹂Other\033[0m\033[32m\n"\
+                + "         ﹂Other\033[0m\033[31m\n"\
+                + "             [INCOMPLETE]\033[0m\033[32m\n"\
                 + "         ﹂Response\033[0m"
     assert response == text
     # Test getting print with no previous save
@@ -238,9 +239,12 @@ def test_get_dict_print():
                 + "\033[35m(E) Text!\033[0m\n"\
                 + "\033[93m(E) Other\033[0m\033[31m\n"\
                 + "(P) Question?\033[0m\033[32m\n"\
-                + "    ﹂Yes\033[0m\033[32m\n"\
-                + "    ﹂No\033[0m\033[32m\n"\
-                + "    ﹂Maybe\033[0m"
+                + "    ﹂Yes\033[0m\033[31m\n"\
+                + "        [INCOMPLETE]\033[0m\033[32m\n"\
+                + "    ﹂No\033[0m\033[31m\n"\
+                + "        [INCOMPLETE]\033[0m\033[32m\n"\
+                + "    ﹂Maybe\033[0m\033[31m\n"\
+                + "        [INCOMPLETE]\033[0m"
     assert response == text
     # Test getting print with no item list or responses
     response = get_dict_print(branch_dict, [1,0])

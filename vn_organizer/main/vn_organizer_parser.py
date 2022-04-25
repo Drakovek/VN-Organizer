@@ -64,7 +64,13 @@ def user_edit(file:str=None, branch_dict:dict=None):
             text = "Toggled END"
             continue
         if response == "q":
-            break
+            if input("Quit without saving? (Y/N): ").lower() == "y":
+                # Clear the terminal
+                if os_name == "nt":
+                    system("cls")
+                else:
+                    system("clear")
+                break
         # Print help command
         text = "Commands:\n"\
                     + "h - help\n"\
