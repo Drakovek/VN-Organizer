@@ -161,6 +161,32 @@ def set_dict_from_path(branch_dict:dict=None,
     except (IndexError, TypeError):
         return branch_dict
 
+def is_complete(branch_dict:dict=None) -> bool:
+    """
+    Returns whether a given branch and all it's sub-branches are marked as complete.
+
+    :param branch_dict: Branch dict to check, defaults to None
+    :type branch_dict: dict, optional
+    :return: Whether the branch and all sub-branches are complete
+    :rtype: bool
+    """
+    try:
+        # Get internal branches
+        branches = branch_dict["branch"]
+        # Check if there are multiple branches
+        if len(branches) == 0:
+            # Return whether this single branch is finished
+            return branch_dict["end"]
+        else:
+            # Check whether each sub branch is finished
+            for branch in branches:
+                if not is_complete(branch):
+                    return False
+        # Return True if all branches are found complete
+        return True
+    except (KeyError, TypeError):
+        return False
+
 def get_dict_print(branch_dict:dict=None, path:List[int]=None) -> str:
     """
     Gets printable text to show the user the contents of the branch dict at a given path.
@@ -211,6 +237,9 @@ def get_dict_print(branch_dict:dict=None, path:List[int]=None) -> str:
             if item_list[i]["type"] == "s":
                 text = get_color("c") + "(S) " + item_list[i]["text"] + get_color("d") + "\n" + text
                 break
+        # Add complete tag if the branch and all sub-branches are complete
+        if is_complete(sub_dict):
+            text = get_color("g") + "[COMPLETE BRANCH]" + get_color("d") + "\n" + text
         # Add elipses if not at the beginning of the branch
         if len(path) > 0:
             text = "(...)\n" + text

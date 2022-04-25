@@ -7,6 +7,7 @@ from tempfile import gettempdir
 from shutil import rmtree
 from vn_organizer.main.vn_organizer import add_item_to_dict
 from vn_organizer.main.vn_organizer import create_branch_in_dict
+from vn_organizer.main.vn_organizer import is_complete
 from vn_organizer.main.vn_organizer import get_color
 from vn_organizer.main.vn_organizer import get_dict_from_path
 from vn_organizer.main.vn_organizer import get_dict_print
@@ -251,6 +252,7 @@ def test_get_dict_print():
     # Test getting print for branch marked as end
     response = get_dict_print(branch_dict, [1,1])
     text = "(...)\n"\
+                + "\033[32m[COMPLETE BRANCH]\033[0m\n"\
                 + "\033[36m(S) 2-3\033[0m\n"\
                 + "\033[31m(P) New Prompt!\033[0m\n"\
                 + "\033[32m    ﹂Response\033[0m\n"\
@@ -309,3 +311,45 @@ def test_read_write_branch_dict():
     file = join(test_dir, "cant.json")
     write_branch_dict(file, None)
     assert not exists(file)
+
+def test_is_complete():
+    """
+    Tests the is_complete function.
+    """
+    # Test whether a simple branch is complete
+    start = get_empty_branch_dict()
+    assert not is_complete(start)
+    start["end"] = True
+    assert is_complete(start)
+    # Test getting whether a branch dict with multiple branches is complete
+    start = create_branch_in_dict(start, "'Tis a Question", ["Yes", "No", "Maybe"])
+    assert not is_complete(start)
+    branch = get_dict_from_path(start, [0])
+    branch["end"] = True
+    start = set_dict_from_path(start, branch, [0])
+    assert not is_complete(start)
+    branch = get_dict_from_path(start, [1])
+    branch["end"] = True
+    start = set_dict_from_path(start, branch, [1])
+    assert not is_complete(start)
+    branch = get_dict_from_path(start, [2])
+    branch["end"] = True
+    start = set_dict_from_path(start, branch, [2])
+    assert is_complete(start)
+    # Test that sub branches are complete
+    branch = get_dict_from_path(start, [1])
+    branch = create_branch_in_dict(branch, "Another Fork", ["Yep", "No"])
+    start = set_dict_from_path(start, branch, [1])
+    assert not is_complete(start)
+    assert is_complete(get_dict_from_path(start, [2]))
+    branch = get_dict_from_path(start, [1, 0])
+    branch["end"] = True
+    start = set_dict_from_path(start, branch, [1, 0])
+    assert not is_complete(start)
+    branch = get_dict_from_path(start, [1, 1])
+    branch["end"] = True
+    start = set_dict_from_path(start, branch, [1, 1])
+    assert is_complete(start)
+    # Test using invalid parameters
+    assert not is_complete({})
+    assert not is_complete(None)

@@ -71,7 +71,7 @@ def user_edit(file:str=None, branch_dict:dict=None):
                     + "a - add element\n"\
                     + "d - delete element\n"\
                     + "m - move\n"\
-                    + "f - toggle whether the branch ends"\
+                    + "f - toggle whether the branch ends\n"\
                     + "w - write to file\n"\
                     + "q - quit program (without saving)"
                     
