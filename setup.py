@@ -15,7 +15,7 @@ desc = "Utility for keeping track of branches and saves in visual novels or othe
 
 setuptools.setup(
     name="vn_organizer",
-    version="0.0.1",
+    version="0.0.2",
     author="Drakovek",
     author_email="DrakovekMail@gmail.com",
     description=desc,
@@ -23,7 +23,7 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/Drakovek/VN-Organizer",
     packages=setuptools.find_packages(),
-    install_requires=[],
+    install_requires=["Pillow"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",

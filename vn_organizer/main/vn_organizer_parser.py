@@ -5,6 +5,7 @@ from os import pardir, system
 from os import name as os_name
 from os.path import abspath, basename, join, exists
 from typing import List
+from vn_organizer.main.flowchart_generator import generate_flowchart
 from vn_organizer.main.vn_organizer import add_item_to_dict
 from vn_organizer.main.vn_organizer import create_branch_in_dict
 from vn_organizer.main.vn_organizer import get_dict_print
@@ -171,6 +172,13 @@ def main():
             "file",
             help="JSON file with branch info.",
             type=str)
+    parser.add_argument(
+            "-c",
+            "--chart",
+            metavar="FILE",
+            help="Save the tree as a flowchart image with the given filename.",
+            type=str,
+            default=None)
     args = parser.parse_args()
     full_file = abspath(args.file)
     # Check if directory of the file exists
@@ -192,8 +200,13 @@ def main():
     if branch_dict is None:
         print("File is not correctly formatted.")
         return False
-    # Start the user editing process
-    user_edit(full_file, branch_dict)
+    # Check whether to save chart or edit the tree
+    if args.chart is None:
+        # Start the user editing process
+        user_edit(full_file, branch_dict)
+    else:
+        chart = abspath(args.chart)
+        generate_flowchart(branch_dict).save(chart)
 
 if __name__ == "__main__":
     main()
