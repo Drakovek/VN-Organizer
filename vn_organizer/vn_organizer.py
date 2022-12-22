@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
+from base64 import standard_b64decode as b64decode
+from base64 import standard_b64encode as b64encode
+from binascii import Error as binerror
 from json import dump, load
 from json.decoder import JSONDecodeError
-from os.path import abspath
-from re import sub
+from os import listdir, remove
+from os.path import abspath, exists, join
+from re import findall, sub
+from traceback import print_exc
 from typing import List
 
 def get_color(color:str=None) -> str:
@@ -37,6 +42,22 @@ def get_color(color:str=None) -> str:
     else:
         # Default
         return "\033[0m"
+
+def file_to_b64(file:str) -> str:
+    with open(file, "rb") as f:
+        ba = bytearray(f.read())
+        data = str(b64encode(ba))
+    # Remove Extraneous characters
+    while data.startswith("b'"):
+        data = data[2:]
+    while data.endswith("'"):
+        data = data[:len(data)-1]
+    return data
+
+def b64_to_file(b64:str, file:str):
+    ba = bytearray(b64decode(b64))
+    with open(file, "wb") as f:
+        f.write(ba)
 
 def get_empty_branch_dict() -> dict:
     """
@@ -205,12 +226,15 @@ def get_dict_print(branch_dict:dict=None, path:List[int]=None) -> str:
         # Get the item list
         text = ""
         item_list = sub_dict["item_list"]
+        save_num = 1
         for item in item_list:
             if item["type"] == "s":
-                line = get_color("c") + "(S) "
+                line = get_color("c") + "(S) Save " + str(save_num)
+                text = text + "\n" + line + get_color("d")
+                save_num += 1
             else:
                 line = get_color(item["type"].lower()) + "(E) "
-            text = text + "\n" + line + item["text"] + get_color("d")
+                text = text + "\n" + line + item["text"] + get_color("d")
         # Add ending marker, if present
         if sub_dict["end"]:
             text = text + "\n[END]"
@@ -230,15 +254,6 @@ def get_dict_print(branch_dict:dict=None, path:List[int]=None) -> str:
         if sub_dict["response"] is not None and sub_dict["prompt"] is not None:
             text = get_color("g") + "    ﹂" + sub_dict["response"] + get_color("d") + "\n" + text
             text = get_color("r") + "(P) " + sub_dict["prompt"] + get_color("d") + "\n" + text
-        # Get last save
-        prev_dict = get_dict_from_path(branch_dict, path[:-1])
-        if len(path) == 0:
-            prev_dict = {"item_list":[]}
-        item_list = prev_dict["item_list"]
-        for i in range(len(item_list)-1, -1, -1):
-            if item_list[i]["type"] == "s":
-                text = get_color("c") + "(S) " + item_list[i]["text"] + get_color("d") + "\n" + text
-                break
         # Add complete tag if the branch and all sub-branches are complete
         if is_complete(sub_dict):
             text = get_color("g") + "[COMPLETE BRANCH]" + get_color("d") + "\n" + text
@@ -251,7 +266,7 @@ def get_dict_print(branch_dict:dict=None, path:List[int]=None) -> str:
     except (KeyError, TypeError):
         return ""
 
-def write_branch_dict(file:str=None, branch_dict:dict=None):
+def write_tree(file:str, branch_dict:dict, primary_path:str, secondary_path:str, persistent:str):
     """
     Write a given branch dict as a JSON file with the given filename.
 
@@ -263,12 +278,28 @@ def write_branch_dict(file:str=None, branch_dict:dict=None):
     try:
         # Test that the branch_dict is a proper dict
         assert type(branch_dict) is dict
+        cur_dict = dict()
+        cur_dict["application"] = "VN-Organizer"
+        cur_dict["primary_path"] = primary_path
+        cur_dict["secondary_path"] = secondary_path
+        cur_dict["tree"] = branch_dict
+        # Check for persistent file
+        prime_persistent = abspath(join(primary_path, "persistent"))
+        # Read persistent file, if exists
+        persistent_data = persistent
+        if exists(prime_persistent):
+            persistent_data = file_to_b64(prime_persistent)
+        cur_dict["persistent"] = persistent_data
+        # Write persistent data, if it doesn't exist
+        if persistent_data is not None and not exists(prime_persistent):
+            b64_to_file(persistent_data, prime_persistent)
         # Write dict as a JSON file
         with open(abspath(file), "w") as out_file:
-            dump(branch_dict, out_file, indent=4, separators=(",", ": "))
-    except (AssertionError, FileNotFoundError, TypeError): pass
+            dump(cur_dict, out_file, indent=4, separators=(",", ": "))
+    except (AssertionError, FileNotFoundError, TypeError):
+        print_exc()
 
-def read_branch_dict(file:str=None) -> dict:
+def read_tree(file:str=None) -> dict:
     """
     Reads a JSON file and converts to a branch dict.
     Returns None is keys of the dict do not match the branch dict format.
@@ -283,11 +314,28 @@ def read_branch_dict(file:str=None) -> dict:
         with open(abspath(file)) as in_file:
             json = load(in_file)
         # Check if JSON is for a branch dict
-        assert json["prompt"] is None or type(json["prompt"]) is str
-        assert json["response"] is None or type(json["response"]) is str
-        assert type(json["end"]) is bool
-        assert type(json["item_list"]) is list
-        assert type(json["branch"]) is list
+        assert json["application"] == "VN-Organizer"
         return json
     except (AssertionError, FileNotFoundError, JSONDecodeError, KeyError, TypeError):
         return None
+
+def create_saves(saves:List[str], primary_path:str, secondary_path:str):
+    # Delete existing saves
+    regex = ".+\\.save$"
+    filenames = listdir(primary_path)
+    for filename in filenames:
+        if len(findall(regex, filename)) > 0:
+            fullfile = abspath(join(primary_path, filename))
+            remove(fullfile)
+    filenames = listdir(secondary_path)
+    for filename in filenames:
+        if len(findall(regex, filename)) > 0:
+            fullfile = abspath(join(secondary_path, filename))
+            remove(fullfile)
+    # Save all save files
+    for i in range(0, len(saves)):
+        # Save files
+        savenum = i+1
+        filename = f"1-{savenum}-LT1.save"
+        b64_to_file(saves[i], abspath(join(primary_path, filename)))
+        b64_to_file(saves[i], abspath(join(secondary_path, filename)))

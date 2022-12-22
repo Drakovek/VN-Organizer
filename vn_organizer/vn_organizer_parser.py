@@ -1,24 +1,86 @@
 #!/usr/bin/env python3
 
 from argparse import ArgumentParser
+
 from os import pardir, system
-from os import name as os_name
-from os.path import abspath, basename, join, exists
+from os import name as os_name, listdir
+from os.path import abspath, basename, join, exists, isdir
+from re import findall
 from typing import List
-from vn_organizer.main.flowchart_generator import generate_flowchart
-from vn_organizer.main.vn_organizer import add_item_to_dict
-from vn_organizer.main.vn_organizer import create_branch_in_dict
-from vn_organizer.main.vn_organizer import get_dict_print
-from vn_organizer.main.vn_organizer import get_dict_from_path
-from vn_organizer.main.vn_organizer import get_empty_branch_dict
-from vn_organizer.main.vn_organizer import read_branch_dict
-from vn_organizer.main.vn_organizer import set_dict_from_path
-from vn_organizer.main.vn_organizer import write_branch_dict
+from vn_organizer.vn_organizer import add_item_to_dict
+from vn_organizer.vn_organizer import create_branch_in_dict
+from vn_organizer.vn_organizer import create_saves
+from vn_organizer.vn_organizer import file_to_b64
+from vn_organizer.vn_organizer import get_dict_print
+from vn_organizer.vn_organizer import get_dict_from_path
+from vn_organizer.vn_organizer import get_empty_branch_dict
+from vn_organizer.vn_organizer import read_tree
+from vn_organizer.vn_organizer import set_dict_from_path
+from vn_organizer.vn_organizer import write_tree
+
+def get_save_paths() -> (str, str):
+    # Get the primary directory
+    primary = None
+    while True:
+        print()
+        primary = str(input("Primary Save Path: "))
+        if primary == "":
+            print("Invalid directory")
+            continue
+        primary = abspath(primary)
+        if exists(primary) and isdir(primary):
+            break
+        print("Invalid directory.")
+    # Get the secondary directory
+    secondary = None
+    while True:
+        print()
+        secondary = str(input("Secondary Save Path (Empty if N/A): "))
+        # Set secondary to None if empty
+        if secondary == "":
+            secondary = None
+            break
+        secondary = abspath(secondary)
+        if exists(secondary) and isdir(secondary):
+            break
+        print("Invalid directory.")
+    # Return directories
+    return primary, secondary
+
+def get_save(save_path:str) -> str:
+    # Get the main save files
+    files = []
+    regex = "[0-9]-[0-9]-LT1\\.save$"
+    all_files = listdir(save_path)
+    all_files = sorted(all_files)
+    for filename in all_files:
+        if len(findall(regex, filename)) > 0:
+            files.append(filename)
+    # Print list of save files
+    print()
+    for i in range(0, len(files)):
+        print("(" + str(i+1) + ") " + str(files[i]))
+    # Have the user choose a save file.
+    response = input("Which save? (Defaults to 1): ")
+    if response == "":
+        response = "1"
+    try:
+        response = int(response) - 1
+        if response < 0 or response > len(files) - 1:
+            return None
+    except ValueError:
+        return None
+    # Read save file as binary
+    file = abspath(join(save_path, files[response]))
+    return file_to_b64(file)
 
 def user_edit(file:str=None, branch_dict:dict=None):
     path = []
     text = None
-    cur_dict = branch_dict
+    cur_dict = branch_dict["tree"]
+    primary = branch_dict["primary_path"]
+    secondary = branch_dict["secondary_path"]
+    persistent = branch_dict["persistent"]
     while True:
         # Clear the terminal
         if os_name == "nt":
@@ -36,12 +98,12 @@ def user_edit(file:str=None, branch_dict:dict=None):
         # Check user command
         if response == "w":
             # Write dict to file
-            write_branch_dict(file, cur_dict)
+            write_tree(file, cur_dict, primary, secondary, persistent)
             text = "Saved File"
             continue
         if response == "a":
             # Add element to the dict
-            cur_dict = add_element(cur_dict, path)
+            cur_dict = add_element(cur_dict, path, primary)
             text = None
             continue
         if response == "d":
@@ -52,6 +114,13 @@ def user_edit(file:str=None, branch_dict:dict=None):
         if response == "m":
             # Move into part of the dict
             path = move(cur_dict, path)
+            # Create save for the path
+            item_list = get_dict_from_path(cur_dict, path)["item_list"]
+            saves = []
+            for item in item_list:
+                if item["type"] == "s":
+                    saves.append(item["text"])
+            create_saves(saves, primary, secondary)
             text = None
             continue
         if response == "f":
@@ -62,6 +131,9 @@ def user_edit(file:str=None, branch_dict:dict=None):
                 sub_dict["end"] = False
             cur_dict = set_dict_from_path(cur_dict, sub_dict, path)
             text = "Toggled END"
+            continue
+        if response == "s":
+            primary, secondary = get_save_paths()
             continue
         if response == "q":
             if input("Quit without saving? (Y/N): ").lower() == "y":
@@ -78,6 +150,7 @@ def user_edit(file:str=None, branch_dict:dict=None):
                     + "d - delete element\n"\
                     + "m - move\n"\
                     + "f - toggle whether the branch ends\n"\
+                    + "s - change save file paths\n"\
                     + "w - write to file\n"\
                     + "q - quit program (without saving)"
                     
@@ -112,8 +185,13 @@ def delete_element(branch_dict:dict=None, path:List[int]=None) -> dict:
     if response == "e":
         # Remove one of the events from the item list
         item_list = cur_dict["item_list"]
+        save_num = 1
         for i in range(0, len(item_list)):
-            print("(" + str(i+1) + ") " + item_list[i]["text"])
+            if item_list[i]["type"] == "s":
+                print("(" + str(i+1) + ") Save " + str(save_num))
+                save_num += 1
+            else:
+                print("(" + str(i+1) + ") " + item_list[i]["text"])
         try:
             index = int(input("Delete: ")) - 1
             if index < 0:
@@ -141,7 +219,7 @@ def delete_element(branch_dict:dict=None, path:List[int]=None) -> dict:
     # Return the dict
     return full_dict
 
-def add_element(branch_dict:dict=None, path:List[int]=None) -> dict:
+def add_element(branch_dict:dict=None, path:List[int]=None, save_path:str=None) -> dict:
     # Get user input for element to add
     full_dict = branch_dict
     cur_dict = get_dict_from_path(full_dict, path)
@@ -149,8 +227,9 @@ def add_element(branch_dict:dict=None, path:List[int]=None) -> dict:
     # Check the input
     if response == "s":
         # Create a save element
-        save = input("Save Name: ")
-        cur_dict = add_item_to_dict(cur_dict, "s", save)
+        save = get_save(save_path)
+        if save is not None:
+            cur_dict = add_item_to_dict(cur_dict, "s", save)
     elif response == "e":
         # Create event
         event = input("Event Name: ")
@@ -178,13 +257,6 @@ def main():
             "file",
             help="JSON file with branch info.",
             type=str)
-    parser.add_argument(
-            "-c",
-            "--chart",
-            metavar="FILE",
-            help="Save the tree as a flowchart image with the given filename.",
-            type=str,
-            default=None)
     args = parser.parse_args()
     full_file = abspath(args.file)
     # Check if directory of the file exists
@@ -197,22 +269,18 @@ def main():
         response = input(f"Create file {basename(full_file)}? (Y/N): ").lower()
         if not response == "y":
             return False
-        # Create file is specified
+        # Create file if specified
+        primary, secondary = get_save_paths()
         new_dict = get_empty_branch_dict()
-        write_branch_dict(full_file, new_dict)
+        write_tree(full_file, new_dict, primary, secondary, None)
     # Read the given file
-    branch_dict = read_branch_dict(full_file)
+    branch_dict = read_tree(full_file)
     # Check if the file is a proper branch dict
     if branch_dict is None:
         print("File is not correctly formatted.")
         return False
-    # Check whether to save chart or edit the tree
-    if args.chart is None:
-        # Start the user editing process
-        user_edit(full_file, branch_dict)
-    else:
-        chart = abspath(args.chart)
-        generate_flowchart(branch_dict).save(chart)
+    # Start the user editing process
+    user_edit(full_file, branch_dict)
 
 if __name__ == "__main__":
     main()
